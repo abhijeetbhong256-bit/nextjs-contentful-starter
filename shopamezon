@@ -1,0 +1,115 @@
+node -v
+npm -v
+amazon-clone/
+ ├── backend/
+ └── frontend/   (later)
+cd amazon-clone
+mkdir backend
+cd backend
+npm init -y
+npm install express mongoose cors dotenv jsonwebtoken bcryptjs
+npm install nodemon --save-dev
+backend/
+ ├── config/
+ │    └── db.js
+ ├── models/
+ │    ├── User.js
+ │    ├── Product.js
+ │    └── Order.js
+ ├── routes/
+ │    ├── userRoutes.js
+ │    └── productRoutes.js
+ ├── server.js
+ └── .env
+const mongoose = require("mongoose");
+
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB Connected");
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const connectDB = require("./config/db");
+
+dotenv.config();
+connectDB();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.send("Amazon Clone API Running");
+});
+
+app.use("/api/users", require("./routes/userRoutes"));
+app.use("/api/products", require("./routes/productRoutes"));
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=amazonCloneSecret
+const mongoose = require("mongoose");
+
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: { type: String, unique: true },
+  password: String,
+  role: { type: String, default: "user" } // user | admin | seller
+});
+
+module.exports = mongoose.model("User", userSchema);
+const mongoose = require("mongoose");
+
+const productSchema = new mongoose.Schema({
+  title: String,
+  price: Number,
+  image: String,
+  category: String,
+  stock: Number,
+  sellerId: mongoose.Schema.Types.ObjectId
+});
+
+module.exports = mongoose.model("Product", productSchema);
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User");
+
+const router = express.Router();
+
+// Register
+router.post("/register", async (req, res) => {
+  const { name, email, password } = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+  const user = await User.create({ name, email, password: hashedPassword });
+  res.json(user);
+});
+
+// Login
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ email });
+
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    return res.status(401).json({ message: "Invalid credentials" });
+  }
+
+  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+  res.json({ token, user });
+});
+
+module.exports = router;
+"scripts": {
+  "dev": "nodemon server.js"
+}
+npm run dev
